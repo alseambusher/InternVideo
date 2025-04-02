@@ -712,11 +712,26 @@ def pretrain_internvideo2_1b_patch14_224(config):
         clip_student_return_interval=config.vision_encoder.clip_student_return_interval,
     )
 
+    model.vision_proj = torch.nn.Linear(config.vision_encoder.clip_embed_dim, config.embed_dim)
+
     if config.vision_encoder.pretrained is not None:
         logger.info(f"Loading pretrained weights from {config.vision_encoder.pretrained}")
+        print(f"Loading pretrained weights from {config.vision_encoder.pretrained}")
         state_dict = torch.load(config.vision_encoder.pretrained, map_location='cpu')
-        interpolate_pos_embed_internvideo2(state_dict, model, orig_t_size=8)
+        #process checkpoint
+        if "module" in state_dict:
+            state_dict = state_dict["module"]
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            if 'vision_encoder.' in k:
+                new_state_dict[k.replace('vision_encoder.', '')] = v
+            if 'vision_proj' in k:
+                new_state_dict[k] = v
+        state_dict = new_state_dict
+
+        interpolate_pos_embed_internvideo2(state_dict, model, orig_t_size=config.vision_encoder.orig_t_size)
         message = model.load_state_dict(state_dict, strict=False)
+        print('ckpt loaded', message)
         logger.info(message)
     else:
         logger.info("No pretrained weights!!!")
@@ -753,7 +768,7 @@ def pretrain_internvideo2_6b_patch14_224(config):
     if config.vision_encoder.pretrained is not None:
         logger.info(f"Loading pretrained weights from {config.vision_encoder.pretrained}")
         state_dict = torch.load(config.vision_encoder.pretrained, map_location='cpu')
-        interpolate_pos_embed_internvideo2(state_dict, model, orig_t_size=8)
+        interpolate_pos_embed_internvideo2(state_dict, model, orig_t_size=config.vision_encoder.orig_t_size)
         msg = model.load_state_dict(state_dict, strict=False)
         logger.info(msg)
     else:
